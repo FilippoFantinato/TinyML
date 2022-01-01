@@ -1,5 +1,6 @@
 module TinyML.TypingTests
 
+open System
 open TinyML.Typing
 open TinyML.Ast
 open Xunit
@@ -52,29 +53,33 @@ let [<Fact>] ``Composition between two substitutions`` () =
     ]
     
     Assert.Equal<subst>(expected, actual)
-
-let [<Fact>] ``Binary operation with valid parameters of the same type`` () =
-    let binop = BinOp (Lit(LInt 5), "+", Lit(LInt 7))
+    
+let [<Fact>] ``Application with valid expressions`` () =
+    let param = "x"
+    let app = App (Lambda (param, Some TyInt, BinOp (Var param, "+", Lit (LInt 1))), Lit (LInt 3))
     let env = []
     
-    let actualType, actualSubstitutions = typeinfer_expr env binop
+    let actualType, actualSubstitutions = typeinfer_expr env app
     
-    let expectedType = TyInt
+    let expectedType, expectedSubstitutions = TyInt, [(0, TyInt)]
     
     Assert.Equal(expectedType, actualType)
-    Assert.True(List.isEmpty actualSubstitutions)
+    Assert.Equal<subst>(expectedSubstitutions, actualSubstitutions)
     
-let [<Fact>] ``Binary operation with valid parameters with different types`` () =
-    let binop = BinOp (Lit(LInt 5), "+", Lit(LFloat 7.0))
+let [<Fact>] ``Application with invalid parameter should throw an exception`` () =
+    let param = "x"
+    let app = App (Lambda (param, Some TyInt, BinOp (Var param, "+", Lit (LInt 1))), Lit (LBool true))
     let env = []
+ 
+    Assert.Throws<TypeError>(fun () -> typeinfer_expr env app |> ignore)
     
-    let actualType, actualSubstitutions = typeinfer_expr env binop
+let [<Fact>] ``Application without a lambda should throw an exception`` () =
+    let param = "x"
+    let app = App (BinOp (Lit (LFloat 7.0), "+", Lit (LFloat 7.0)), Lit (LBool true))
+    let env = []
+ 
+    Assert.Throws<TypeError>(fun () -> typeinfer_expr env app |> ignore)
     
-    let expectedType = TyFloat
-    
-    Assert.Equal(expectedType, actualType)
-    Assert.True(List.isEmpty actualSubstitutions)
-
 let [<Fact>] ``If then with valid exprs`` () =
     let ifThen = IfThenElse (
         BinOp (Lit (LInt 5), "<", Lit (LFloat 7.0)),
@@ -102,4 +107,107 @@ let [<Fact>] ``If then else with valid exprs`` () =
     
     Assert.Equal(expectedType, actualType)
     Assert.True(List.isEmpty actualSubstitutions)
+ 
+let [<Fact>] ``Binary operation with valid parameters of the same type`` () =
+    let binop = BinOp (Lit(LInt 5), "+", Lit(LInt 7))
+    let env = []
+    
+    let actualType, actualSubstitutions = typeinfer_expr env binop
 
+    let expectedType = TyInt
+    
+    Assert.Equal(expectedType, actualType)
+    Assert.True(List.isEmpty actualSubstitutions)
+    
+let [<Fact>] ``Binary operation with valid parameters with different types`` () =
+    let binop = BinOp (Lit(LInt 5), "+", Lit(LFloat 7.0))
+    let env = []
+    
+    let actualType, actualSubstitutions = typeinfer_expr env binop
+    
+    let expectedType = TyFloat
+    
+    Assert.Equal(expectedType, actualType)
+    Assert.True(List.isEmpty actualSubstitutions)
+
+let [<Fact>] ``Binary operation which return a bool with valid parameters of the same type`` () =
+    let binop = BinOp (Lit(LInt 5), "<", Lit(LInt 5))
+    let env = []
+    
+    let actualType, actualSubstitutions = typeinfer_expr env binop
+    
+    let expectedType = TyBool
+    
+    Assert.Equal(expectedType, actualType)
+    Assert.True(List.isEmpty actualSubstitutions)
+
+
+let [<Fact>] ``Binary operation which return a bool with valid parameters of different types`` () =
+    let binop = BinOp (Lit(LInt 5), "<", Lit(LFloat 7.0))
+    let env = []
+    
+    let actualType, actualSubstitutions = typeinfer_expr env binop
+    
+    let expectedType = TyBool
+    
+    Assert.Equal(expectedType, actualType)
+    Assert.True(List.isEmpty actualSubstitutions)
+
+let [<Fact>] ``Minus unary operation with int parameter`` () =
+    let unop = UnOp ("-", Lit(LInt 5))
+    let env = []
+    
+    let actualType, actualSubstitutions = typeinfer_expr env unop
+
+    let expectedType = TyInt
+    
+    Assert.Equal(expectedType, actualType)
+    Assert.True(List.isEmpty actualSubstitutions)
+    
+    
+let [<Fact>] ``Minus unary operation with float parameter`` () =
+    let unop = UnOp ("-", Lit(LFloat 5.0))
+    let env = []
+    
+    let actualType, actualSubstitutions = typeinfer_expr env unop
+
+    let expectedType = TyFloat
+    
+    Assert.Equal(expectedType, actualType)
+    Assert.True(List.isEmpty actualSubstitutions)
+    
+let [<Fact>] ``Minus unary operation with invalid parameter`` () =
+    let unop = UnOp ("-", Lit(LBool true))
+    let env = []
+    
+    Assert.Throws<TypeError>(fun () -> typeinfer_expr env unop |> ignore)
+
+let [<Fact>] ``Negation unary operation with bool parameter`` () =
+    let unop = UnOp ("not", Lit (LBool true))
+    let env = [] 
+    
+    let actualType, actualSubstitutions = typeinfer_expr env unop
+
+    let expectedType = TyBool
+    
+    Assert.Equal(expectedType, actualType)
+    Assert.True(List.isEmpty actualSubstitutions)
+    
+let [<Fact>] ``Negation unary operation with variable as parameter`` () =
+    let x = "x"
+    let xTyVar = 0
+    let unop = UnOp ("not", Var x)
+    let env = [(x, TyVar xTyVar)] 
+    
+    let actualType, actualSubstitutions = typeinfer_expr env unop
+
+    let expectedType, expectedSubstitutions = TyBool, [(xTyVar, TyBool)]
+    
+    Assert.Equal(expectedType, actualType)
+    Assert.Equal<subst>(expectedSubstitutions, actualSubstitutions)
+        
+let [<Fact>] ``Negation unary operation with invalid parameter`` () =
+    let unop = UnOp ("not", Lit (LInt 5))
+    let env = [] 
+    
+    Assert.Throws<TypeError>(fun () -> typeinfer_expr env unop |> ignore)

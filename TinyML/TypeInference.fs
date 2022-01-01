@@ -9,12 +9,13 @@ open Ast
 
 type subst = (tyvar * ty) list
 
-let rec map_two_lists f l1 l2 =
-    if List.length l1 <> List.length l2 then failwithf "L1 and L2 don't have the same length"
-    
-    match l1, l2 with
-    | [], [] -> []
-    | x1 :: xs1, x2 :: xs2 -> f x1 x2 @ (map_two_lists f xs1 xs2) 
+// TODO: Analyze if it can be useful and what's the behaviour of List.map2 
+//let rec map_two_lists f l1 l2 =
+//    if List.length l1 <> List.length l2 then failwithf "L1 and L2 don't have the same length"
+//    
+//    match l1, l2 with
+//    | [], [] -> []
+//    | x1 :: xs1, x2 :: xs2 -> f x1 x2 @ (map_two_lists f xs1 xs2) 
 
 let rec apply_subst (t : ty) (s : subst) : ty =
     match t with
@@ -33,29 +34,37 @@ let rec apply_subst (t : ty) (s : subst) : ty =
     | TyTuple ts -> TyTuple (List.map (fun t -> apply_subst t s) ts)
 
 let compose_subst (s1 : subst) (s2 : subst) : subst =
-    let composition = List.map (
-                          fun el ->
-                              let tv, t = el
-                              
-                              (tv, apply_subst t s1)
-                        ) s2
-
-    List.filter (fun el ->
-                    let el1, el2 = el
-                    match el2 with
-                    | TyVar tv -> el1 <> tv
-                    | _ -> true
-                ) composition
+    if List.isEmpty s1 then
+        s2
+    else
+        if List.isEmpty s2 then
+            s1
+        else 
+            s2
+            |> List.map (
+                      fun el ->
+                          let tv, t = el
+                          
+                          (tv, apply_subst t s1)
+                    ) 
+            |> List.filter (fun el ->
+                            let el1, el2 = el
+                            match el2 with
+                            | TyVar tv -> el1 <> tv
+                            | _ -> true
+                        )
 
 // TODO: verify if it works
 let rec unify (t1 : ty) (t2 : ty) : subst =
     match t1, t2 with
-    | TyName t1, TyName t2 -> if t1 = t2 then [] else failwithf $"unify: impossible to unify {t1} with {t2}"
-    | TyVar t1, _
-    | _, TyVar t1 -> match t2 with
-                     | TyVar t2 -> if t2 = t1 then failwithf $"unify: impossible to unify {t1} with {t2}"
-                     [(t1, t2)]
+    | TyName t1, TyName t2 -> if t1 = t2 then [] else type_error $"unify: impossible to unify {t1} with {t2}"
+    | TyVar t1, t2
+    | t2, TyVar t1 -> match t2 with
+                      | TyVar t2 -> if t2 = t1 then type_error $"unify: impossible to unify {t1} with {t2}"
+                      | _ -> ()
+                      [(t1, t2)]
     | TyArrow(ty1, ty2), TyArrow(ty3, ty4) -> compose_subst (unify ty1 ty3) (unify ty2 ty4)
+    | _, _ -> type_error $"unify: impossible to unify {t1} with {t2}"
 //    | TyTuple t1s, TyTuple t2s -> map_two_lists unify t1s t2s
 
 let rec freevars_ty (t : ty) : tyvar Set =
@@ -139,7 +148,8 @@ let rec typeinfer_expr (env : ty env) (e : expr) : ty * subst =
         let e2t, e2s = typeinfer_expr env e2
         let bt = TyVar (generate_fresh_tyvar env)
         
-        let s = compose_subst (compose_subst (unify e1t (TyArrow (e2t, bt))) e1s) e2s
+        let et = unify e1t (TyArrow (e2t, bt))                
+        let s = compose_subst (compose_subst et e1s) e2s
         
         (apply_subst bt s, s)
         
@@ -161,7 +171,15 @@ let rec typeinfer_expr (env : ty env) (e : expr) : ty * subst =
             (e2t, compose_subst (compose_subst e1s e2s) e3s)
     
 //    TODO: Tuple type inference
-//    | Tuple es -> 
+    | Tuple es ->
+        List.foldBack (
+            fun el acc ->
+                let t, s = acc
+                let t = match t with | TyTuple t -> t
+                let et, es = typeinfer_expr env el
+                
+                (TyTuple (et :: t), compose_subst s es)
+            ) es (TyTuple [], [])
         
     | BinOp (e1, ("+" | "-" | "/" | "%" | "*" as op), e2) ->
         let e1t, e1s = typeinfer_expr env e1
@@ -169,7 +187,7 @@ let rec typeinfer_expr (env : ty env) (e : expr) : ty * subst =
         
         try 
             let s1 = compose_subst (unify TyInt e1t) e1s
-            
+
             try 
                 let s2 = compose_subst (unify TyInt e2t) e2s
                 (TyInt, compose_subst s1 s2)
@@ -243,17 +261,13 @@ let rec typeinfer_expr (env : ty env) (e : expr) : ty * subst =
         
     | UnOp ("-", e) ->
         let et, es = typeinfer_expr env e
-        let s =
-                try
-                    compose_subst (unify TyInt et) es
-                with e ->
-                    try
-                        compose_subst (unify TyFloat et) es
-                    with e ->
-                        raise e
-
-        
-        (TyBool, s)
+        try
+            (TyInt, compose_subst (unify TyInt et) es)
+        with e ->
+            try
+                (TyFloat, compose_subst (unify TyFloat et) es)
+            with e ->
+                raise e
           
     | UnOp ("not", e) ->
         let et, es = typeinfer_expr env e
