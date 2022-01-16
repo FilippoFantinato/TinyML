@@ -6,6 +6,7 @@
 module TinyML.Eval
 
 open Ast
+open TinyML
 
 // TODO: Try to perform binary ops int this way
 //let inline (@+) x y = x + y
@@ -38,10 +39,12 @@ let rec eval_expr (env : value env) (e : expr) : value =
     // TODO: test this is ok or fix it
     | LetRec (f, _, e1, e2) -> 
         let v1 = eval_expr env e1
-        match v1 with
-        | Closure (venv1, x, e) -> RecClosure (venv1, f, x, e)
-        | _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
+        let v1 = match v1 with
+                    | Closure (venv1, x, e) -> RecClosure (venv1, f, x, e)
+                    | _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
         // TODO finish this implementation
+        eval_expr ((f, v1) :: env) e2
+        
         
     | IfThenElse (e1, e2, None) ->
         let v1 = eval_expr env e1

@@ -15,8 +15,9 @@ let interpret_expr tenv venv e =
     #if DEBUG
     printfn "AST:\t%A\npretty:\t%s" e (pretty_expr e)
     #endif
-    let t = TypeChecker.typecheck_expr tenv e
+    let t = TypeInference.typeinfer_expr tenv e
     #if DEBUG
+    let t, _ = t
     printfn "type:\t%s" (pretty_ty t)
     #endif
     let v = Eval.eval_expr venv e
@@ -56,10 +57,11 @@ let main_interactive () =
                 | IBinding (_, x, _, _ as b) ->
                     let t, v = interpret_expr tenv venv (LetIn (b, Var x)) // TRICK: put the variable itself as body after the in
                     // update global environments
-                    tenv <- (x, t) :: tenv
+                    let tScheme = ForAll ([], t)
+                    tenv <- (x, tScheme) :: tenv
                     venv <- (x, v) :: venv
                     x, (t, v)
-
+            
             printfn "val %s : %s = %s" x (pretty_ty t) (pretty_value v)
                 
     

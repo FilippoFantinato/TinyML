@@ -54,7 +54,7 @@ let (|TyBool|_|) = (|TyLit|_|) "bool"
 let (|TyUnit|_|) = (|TyLit|_|) "unit"
 
 
-type scheme = Forall of tyvar list * ty
+type scheme = ForAll of tyvar list * ty
 
 type lit = LInt of int
          | LFloat of float
