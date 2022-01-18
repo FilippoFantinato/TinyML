@@ -9,15 +9,21 @@ open System
 open FSharp.Common
 open TinyML.Ast
 
-let parse_from_TextReader rd filename parser = Parsing.parse_from_TextReader SyntaxError rd filename (1, 1) parser Lexer.tokenize Parser.tokenTagToTokenId
+let parse_from_TextReader rd filename parser = Parsing.parse_from_TextReader
+                                                   SyntaxError rd
+                                                   filename
+                                                   (1, 1)
+                                                   parser
+                                                   Lexer.tokenize
+                                                   Parser.tokenTagToTokenId
     
 let interpret_expr tenv venv e =
     #if DEBUG
     printfn "AST:\t%A\npretty:\t%s" e (pretty_expr e)
     #endif
-    let t = TypeInference.typeinfer_expr tenv e
+    let t, _ = TypeInference.typeinfer_expr tenv e
+//    let t = TypeChecker.typecheck_expr tenv e
     #if DEBUG
-    let t, _ = t
     printfn "type:\t%s" (pretty_ty t)
     #endif
     let v = Eval.eval_expr venv e
@@ -45,6 +51,7 @@ let main_interactive () =
     printfn "entering interactive mode..."
     let mutable tenv = []
     let mutable venv = []
+    
     while true do
         trap <| fun () ->
             printf "\n> "
@@ -61,7 +68,7 @@ let main_interactive () =
                     tenv <- (x, tScheme) :: tenv
                     venv <- (x, v) :: venv
                     x, (t, v)
-            
+
             printfn "val %s : %s = %s" x (pretty_ty t) (pretty_value v)
                 
     

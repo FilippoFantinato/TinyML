@@ -65,14 +65,20 @@ let compose_subst (s1 : subst) (s2 : subst) : subst =
                 | _ -> true
             )
 
+let rec ty_belongs_to_ty t t2 =
+    match t2 with
+    | TyName _ -> false
+    | TyVar t2 -> t2 = t
+    | TyArrow (t1, t2) -> (ty_belongs_to_ty t t1) || (ty_belongs_to_ty t t2)
+    | TyTuple tys -> List.fold (fun acc el -> acc || (ty_belongs_to_ty t el)) false tys
+
 let rec unify (t1 : ty) (t2 : ty) : subst =
     match t1, t2 with
     | TyName t1, TyName t2 -> if t1 = t2 then [] else type_error $"unify: impossible to unify {t1} with {t2}"
     | TyVar t1, t2
-    | t2, TyVar t1 -> match t2 with
-                      | TyVar t2 -> if t2 = t1 then type_error $"unify: impossible to unify {t1} with {t2}"
-                      | _ -> ()
-                      ; [(t1, t2)]
+    | t2, TyVar t1 -> if ty_belongs_to_ty t1 t2
+                        then []
+                        else [(t1, t2)]
     | TyArrow(ty1, ty2), TyArrow(ty3, ty4) -> compose_subst (unify ty1 ty3) (unify ty4 ty2)
     | _, _ -> type_error $"unify: impossible to unify {t1} with {t2}"
 
@@ -106,22 +112,27 @@ let instantiation (ForAll (tvs, t)) maxTyVar =
 // type inference
 //
 
+let mutable tyVarReached = 0
 let generate_fresh_tyvar env =
-    try        
-        let rec extract_greater_tyvar ty =
-            match ty with
-            | TyName _ -> -1
-            | TyArrow (ty1, ty2) -> max (extract_greater_tyvar ty1) (extract_greater_tyvar ty2)
-            | TyTuple tys -> tys |> List.map extract_greater_tyvar |> List.max
-            | TyVar ty -> ty
+    tyVarReached <- tyVarReached + 1
+    tyVarReached
 
-        let max = env
-                    |> List.map (fun (_, ForAll (_, t)) -> extract_greater_tyvar t)
-                    |> List.max
-
-        max + 1
-    with e ->
-        1
+//let generate_fresh_tyvar env =
+//    try
+//        let rec extract_greater_tyvar ty =
+//            match ty with
+//            | TyName _ -> -1
+//            | TyArrow (ty1, ty2) -> max (extract_greater_tyvar ty1) (extract_greater_tyvar ty2)
+//            | TyTuple tys -> tys |> List.map extract_greater_tyvar |> List.max
+//            | TyVar ty -> ty
+//
+//        let max = env
+//                    |> List.map (fun (_, ForAll (_, t)) -> extract_greater_tyvar t)
+//                    |> List.max
+//
+//        max + 1
+//    with e ->
+//        1
 
 
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
@@ -145,7 +156,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let e2t, e2s = typeinfer_expr env e2
 
         let s = compose_subst e2s e1s
-
+        
         (e2t, s)
 
     | Let (x, Some t1, e1, e2) ->
@@ -162,16 +173,18 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
  
     | LetRec (x, None, e1, e2) ->
         let xT = TyVar (generate_fresh_tyvar env)
-        let _, e1s = typeinfer_expr ((x, ForAll ([], xT)) :: env) e1
+        let e1t, e1s = typeinfer_expr ((x, ForAll ([], xT)) :: env) e1
 
-        let e1t = apply_subst xT e1s
+        let e1tInfered = apply_subst xT e1s
+        let e1s = compose_subst (unify e1tInfered e1t) e1s
+        let e1t = apply_subst e1t e1s
 
         let env = ((x, generalization env e1t) :: env, e1s) ||> apply_subst_env
 
         let e2t, e2s = typeinfer_expr env e2
 
         let s = compose_subst e1s e2s
-
+        
         (apply_subst e2t s, s)
 
     | LetRec (x, Some t, e1, e2) ->
@@ -209,42 +222,48 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let bt = TyVar (generate_fresh_tyvar env)
 
         let et = unify e1t (TyArrow (e2t, bt))
-        let tmp = (compose_subst et e1s)
-        let s = compose_subst tmp e2s
+        let s = compose_subst (compose_subst et e1s) e2s
 
         (apply_subst bt s, s)
 
     | IfThenElse (e1, e2, e3o) ->
         let e1t, e1s = typeinfer_expr env e1
+        let e1s = compose_subst (unify TyBool e1t) e1s
         
         let env = apply_subst_env env e1s
 
         let e2t, e2s = typeinfer_expr env e2
-
-        let e1s = compose_subst (unify TyBool e1t) e1s
-
+        
         match e3o with
         | None ->
             let e2s = compose_subst (unify TyUnit e2t) e2s
+            
+            let s = compose_subst e2s e1s
 
-            (TyUnit, compose_subst e1s e2s)
+            (TyUnit, s)
         | Some e3 ->
             let env = apply_subst_env env e2s
             let e3t, e3s = typeinfer_expr env e3
             let e3s = compose_subst (unify e2t e3t) e3s
+            
+            let s = compose_subst (compose_subst e1s e2s) e3s
 
-            (e2t, compose_subst (compose_subst e1s e2s) e3s)
+            (e2t, s)
     
     | Tuple es ->
         List.foldBack (
             fun el acc ->
                 let t, s = acc
-                let t = match t with | TyTuple t -> t
+                let t = match t with
+                        | TyTuple t -> t
+                        | _ -> unexpected_error ""
                 
                 let env = apply_subst_env env s
                 let et, es = typeinfer_expr env el
                 
-                (TyTuple (et :: t), compose_subst s es)
+                let s = compose_subst s es
+
+                (TyTuple (et :: t), s)
             ) es (TyTuple [], [])
 
     | BinOp (e1, ("+" | "-" | "/" | "%" | "*" as _), e2) ->
@@ -256,9 +275,10 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         
         try 
             let s1 = compose_subst (unify TyInt e1t) e1s
-
+            
             try 
                 let s2 = compose_subst (unify TyInt e2t) e2s
+                
                 (TyInt, compose_subst s1 s2)
             with e ->
                 try 
@@ -335,6 +355,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
     | UnOp ("-", e) ->
         let et, es = typeinfer_expr env e
+        
         try
             (TyInt, compose_subst (unify TyInt et) es)
         with e ->

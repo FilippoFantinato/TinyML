@@ -127,7 +127,7 @@ let [<Fact>] ``Let rec untyped evaluating f int->'a`` () =
 
     let actualType, _ = typeinfer_expr env expr
 
-    let expectedType = TyArrow(TyInt, TyVar 7)
+    let expectedType = TyArrow(TyInt, TyVar 9)
 
     Assert.Equal(expectedType, actualType)
 
@@ -166,7 +166,7 @@ let [<Fact>] ``Let rec untyped evaluating a polymorphic function`` () =
     let env = []
     
     let actualType, _ = typeinfer_expr env expr
-    let expectedType = TyArrow (TyVar 10, TyVar 11)
+    let expectedType = TyArrow (TyVar 10, TyVar 13)
     
     Assert.Equal(expectedType, actualType)
 
@@ -178,12 +178,10 @@ let [<Fact>] ``Lambda untyped with valid binop`` () =
     let lambda = Lambda("x", None, BinOp(Var "x", "+", BinOp(Lit (LInt 8), "-", UnOp("-", Var "x"))))
     let env = []
 
-    let actualType, actualSubstitutions = typeinfer_expr env lambda
+    let actualType, _ = typeinfer_expr env lambda
     let expectedType = TyArrow (TyInt, TyInt)
-    let expectedSubstitutions = [(1, TyInt)]
     
     Assert.Equal(expectedType, actualType)
-    Assert.Equal<subst>(expectedSubstitutions, actualSubstitutions)
     
 let [<Fact>] ``Lambda typed with valid binop`` () =
     let lambda = Lambda("x", Some TyInt, BinOp(Var "x", "+", BinOp(Lit (LInt 8), "-", UnOp("-", Var "x"))))
@@ -218,29 +216,25 @@ let [<Fact>] ``Lambda polymorphic with any parameter poly`` () =
     let lambda = Lambda ("x", None, Lambda("y", None, Tuple [Var "y"; Var "x"]))
     let env = []
     
-    let actualType, actualSubstitutions = typeinfer_expr env lambda
+    let actualType, _ = typeinfer_expr env lambda
     
     let alpha = TyVar 1
     let beta =  TyVar 2
     let expectedType = TyArrow(alpha, TyArrow(beta, TyTuple [beta; alpha]))
-    let expectedSubstitutions = []
     
     Assert.Equal(expectedType, actualType)
-    Assert.Equal<subst>(expectedSubstitutions, actualSubstitutions)    
 
 let [<Fact>] ``Lambda polymorphic with application`` () =
     let lambda = Lambda ("x", None, Lambda("y", None, App (Var "x", Var "y")))
     let env = []
     
-    let actualType, actualSubstitutions = typeinfer_expr env lambda
+    let actualType, _ = typeinfer_expr env lambda
 
     let alpha = TyVar 2
-    let beta =  TyVar 3
+    let beta =  TyVar 5
     let expectedType = TyArrow(TyArrow (alpha, beta), TyArrow(alpha, beta))
-    let expectedSubstitutions = [(1, TyArrow (TyVar 2, TyVar 3))]
     
     Assert.Equal(expectedType, actualType)
-    Assert.Equal<subst>(expectedSubstitutions, actualSubstitutions)    
 
 // Application
 
@@ -249,12 +243,11 @@ let [<Fact>] ``Application with valid expressions`` () =
     let app = App (Lambda (param, Some TyInt, BinOp (Var param, "+", Lit (LInt 1))), Lit (LInt 3))
     let env = []
     
-    let actualType, actualSubstitutions = typeinfer_expr env app
+    let actualType, _ = typeinfer_expr env app
     
-    let expectedType, expectedSubstitutions = TyInt, [(1, TyInt)]
+    let expectedType = TyInt
     
     Assert.Equal(expectedType, actualType)
-    Assert.Equal<subst>(expectedSubstitutions, actualSubstitutions)
     
 let [<Fact>] ``Application with invalid parameter should throw an exception`` () =
     let param = "x"
