@@ -79,22 +79,22 @@ let compose_subst (s1 : subst) (s2 : subst) : subst =
 
 let rec ty_belongs_to_ty t t2 =
     match t2 with
-    | TyName _
-    | TyVar _ -> false
+    | TyName _ -> false
+    | TyVar t2 -> t2 = t
     | TyArrow (t1, t2) -> (ty_belongs_to_ty t t1) || (ty_belongs_to_ty t t2)
     | TyTuple tys -> List.fold (fun acc el -> acc || (ty_belongs_to_ty t el)) false tys
 
 let rec unify (t1 : ty) (t2 : ty) : subst =
     match t1, t2 with
     | TyName t1, TyName t2 -> if t1 = t2 then [] else type_error $"unify: impossible to unify {t1} with {t2}"
+    | TyVar t1, TyVar t2 -> if t1 <> t2 then [(t1, TyVar t2)] else []
     | TyVar t1, t2
     | t2, TyVar t1 -> if ty_belongs_to_ty t1 t2
                         then
                             type_error $"unify: impossible to unify {t1} with {t2}"
                         else
-                            match t2 with
-                            | TyVar _ -> []
-                            | _ -> [(t1, t2)]
+                            [(t1, t2)]
+          
     | TyArrow(ty1, ty2), TyArrow(ty3, ty4) -> compose_subst (unify ty1 ty3) (unify ty4 ty2)
     | TyTuple ty1s, TyTuple ty2s -> ([], ty1s, ty2s) |||> List.fold2 (fun acc ty1 ty2 -> compose_subst (unify ty1 ty2) acc) 
     | _, _ -> type_error $"unify: impossible to unify {t1} with {t2}"
@@ -138,7 +138,7 @@ let generate_fresh_tyvar env =
     try
         let rec extract_greater_tyvar ty =
             match ty with
-            | TyName _ -> -1
+            | TyName _ -> 0
             | TyArrow (ty1, ty2) -> max (extract_greater_tyvar ty1) (extract_greater_tyvar ty2)
             | TyTuple tys -> tys |> List.map extract_greater_tyvar |> List.max
             | TyVar ty -> ty
@@ -192,9 +192,9 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let xT = TyVar (generate_fresh_tyvar env)
         let e1t, e1s = typeinfer_expr ((x, ForAll ([], xT)) :: env) e1
 
-//        let e1tInfered = apply_subst xT e1s
-//        let e1s = compose_subst (unify e1tInfered e1t) e1s
-//        let e1t = apply_subst e1t e1s
+        let e1tInfered = apply_subst xT e1s
+        let e1s = compose_subst (unify e1tInfered e1t) e1s
+        let e1t = apply_subst e1t e1s
 
         let env = ((x, generalization env e1t) :: env, e1s) ||> apply_subst_env
         
@@ -227,7 +227,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let env = (x, ForAll ([], t1)) :: env
         let bt, bs = typeinfer_expr env e
 
-        (apply_subst (TyArrow (bt, t1)) bs, bs)
+        (apply_subst (TyArrow (t1, bt)) bs, bs)
 
     | App (e1, e2) -> 
         let e1t, e1s = typeinfer_expr env e1
