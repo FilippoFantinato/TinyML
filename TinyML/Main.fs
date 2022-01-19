@@ -9,13 +9,7 @@ open System
 open FSharp.Common
 open TinyML.Ast
 
-let parse_from_TextReader rd filename parser = Parsing.parse_from_TextReader
-                                                   SyntaxError rd
-                                                   filename
-                                                   (1, 1)
-                                                   parser
-                                                   Lexer.tokenize
-                                                   Parser.tokenTagToTokenId
+let parse_from_TextReader rd filename parser = Parsing.parse_from_TextReader SyntaxError rd filename (1, 1) parser Lexer.tokenize Parser.tokenTagToTokenId
     
 let interpret_expr tenv venv e =
     #if DEBUG
