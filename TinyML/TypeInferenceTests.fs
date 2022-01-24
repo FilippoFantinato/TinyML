@@ -7,7 +7,7 @@ open Xunit
 
 let [<Fact>] ``Apply substitutions to an arrow type with free vars`` () =
     let s = [
-        (1, TyArrow (TyVar 3, TyVar 4))
+        (1, TyArrow (TyVar 4, TyVar 4))
         (2, TyVar 5)
         (5, TyArrow (TyVar 3, TyVar 4))
     ]
@@ -568,7 +568,7 @@ let [<Fact>] ``Tuple with multiple types`` () =
     
     let env = []
 
-    let actualType, actualSubstitutions = typeinfer_expr env tuple
+    let actualType, _ = typeinfer_expr env tuple
         
     let expectedType = TyTuple [TyInt; TyBool; TyInt]
     

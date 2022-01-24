@@ -13,12 +13,41 @@ open TinyML
 //let inline (@-) x y = x - y
 //let inline (@*) x y = x * y
 //let inline (@/) x y = x / y
-    
+
+//let get_cleaned_env (env : value env) e =
+//    let remove_from_list el = List.filter (fun v -> v <> el)
+//    
+//    let rec get_used_variables e acc =
+//        match e with
+//        | Lit _ -> []
+//        | Var id -> [id]
+//        | App (e1, e2) -> acc @ ((get_used_variables e1 acc) |> (get_used_variables e2))
+//        | Lambda (x, _, e) -> acc @ (get_used_variables e acc |> remove_from_list x)
+//        | Let (x, _, e1, e2) -> acc @ (get_used_variables e1 acc |> (get_used_variables e2) |> remove_from_list x)
+//        | LetRec (x, _, e1, e2) -> acc @ ((get_used_variables e1 acc |> remove_from_list x) |>
+//                                   (get_used_variables e2) |> remove_from_list x)
+//        | IfThenElse (e1, e2, e3o) ->
+//            acc @
+//            (get_used_variables e1 acc |>
+//            get_used_variables e2 |>
+//            match e3o with
+//            | None -> id
+//            | Some e3 -> get_used_variables e3)
+//        | Tuple es -> es |> List.fold (fun acc el -> acc @ get_used_variables el acc) []
+//        | BinOp (e1, _, e2) -> (get_used_variables e1 acc) |> (get_used_variables e2)
+//        | UnOp (_, e) -> get_used_variables e acc
+//
+//    let usedVariables = get_used_variables e (env |> List.map (fun (id, _) -> id))
+//    usedVariables |> List.map (
+//        fun el -> List.find (fun (id, _) -> id = el) env
+//    )
+
 let rec eval_expr (env : value env) (e : expr) : value =
     match e with
     | Lit lit -> VLit lit
 
-    | Lambda (x, _, e) -> Closure (env, x, e)
+    | Lambda (x, _, e) ->
+        Closure (env, x, e)
     
     | App (e1, e2) ->
         let v1 = eval_expr env e1
@@ -36,13 +65,11 @@ let rec eval_expr (env : value env) (e : expr) : value =
         let v1 = eval_expr env e1
         eval_expr ((x, v1) :: env) e2
 
-    // TODO: test this is ok or fix it
     | LetRec (f, _, e1, e2) -> 
         let v1 = eval_expr env e1
         let v1 = match v1 with
                     | Closure (venv1, x, e) -> RecClosure (venv1, f, x, e)
                     | _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
-        // TODO finish this implementation
         eval_expr ((f, v1) :: env) e2
         
         
@@ -63,8 +90,8 @@ let rec eval_expr (env : value env) (e : expr) : value =
                        | _ -> unexpected_error "eval_expr: non-boolean in if guard: %s" (pretty_value v1)
                     )
         
-    | Tuple exprs ->
-        VTuple(List.map (eval_expr env) exprs)
+    | Tuple es ->
+        VTuple(es |> List.map (eval_expr env))
 
     | BinOp (e1, "+", e2) -> binop_number_number (+) (+) env e1 e2
     | BinOp (e1, "-", e2) -> binop_number_number (-) (-) env e1 e2
@@ -105,7 +132,7 @@ and binop_number_number op_int op_float env e1 e2 =
     | VLit (LFloat x), VLit (LFloat y) -> VLit (LFloat (op_float x y))
     | VLit (LInt x), VLit (LFloat y) -> VLit (LFloat (op_float (float x) y))
     | VLit (LFloat x), VLit (LInt y) -> VLit (LFloat (op_float x (float y)))
-    | _ -> unexpected_error "eval_expr: illegal operands in binary operator (+): %s + %s" (pretty_value v1) (pretty_value v2)
+    | _ -> unexpected_error "eval_expr: illegal operands in binary operator (%s): %s, %s" (nameof op_int) (pretty_value v1) (pretty_value v2)
 
 and binop_number_boolean op_int op_float env e1 e2 =
     let v1 = eval_expr env e1
@@ -116,7 +143,7 @@ and binop_number_boolean op_int op_float env e1 e2 =
     | VLit (LFloat x), VLit (LFloat y) -> VLit (LBool (op_float x y))
     | VLit (LInt x), VLit (LFloat y) -> VLit (LBool (op_float (float x) y))
     | VLit (LFloat x), VLit (LInt y) -> VLit (LBool (op_float x (float y)))
-    | _ -> unexpected_error "eval_expr: illegal operands in binary operator (+): %s + %s" (pretty_value v1) (pretty_value v2)
+    | _ -> unexpected_error "eval_expr: illegal operands in binary operator (%s): %s, %s" (nameof op_int) (pretty_value v1) (pretty_value v2)
 
 and binop_boolean_boolean op env e1 e2 =
     let v1 = eval_expr env e1
@@ -124,4 +151,4 @@ and binop_boolean_boolean op env e1 e2 =
     
     match v1, v2 with
     | VLit (LBool x), VLit (LBool y) -> VLit (LBool (op x y))
-    | _ -> unexpected_error "eval_expr: illegal operands in binary operator (+): %s + %s" (pretty_value v1) (pretty_value v2)
+    | _ -> unexpected_error "eval_expr: illegal operands in binary operator (%s): %s, %s" (nameof op) (pretty_value v1) (pretty_value v2)
