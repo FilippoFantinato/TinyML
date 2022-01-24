@@ -15,7 +15,7 @@ let [<Fact>] ``Apply substitutions to an arrow type with free vars`` () =
     let ty = TyArrow (TyVar 1, TyVar 2)
     let actual = apply_subst ty s
     
-    let expected = TyArrow (TyArrow (TyVar 3, TyVar 4), TyArrow (TyVar 3, TyVar 4))
+    let expected = TyArrow (TyArrow (TyVar 4, TyVar 4), TyArrow (TyVar 3, TyVar 4))
         
     Assert.Equal(expected, actual)
     
@@ -48,9 +48,7 @@ let [<Fact>] ``Composition between two substitutions`` () =
     let actual = compose_subst s1 s2
     
     let expected: subst = [
-        (1, TyVar 2)
-        (2, TyVar 7)
-        (3, TyVar 7)
+        (3, TyVar 1)
         (4, TyVar 5)
     ]
     
@@ -166,7 +164,7 @@ let [<Fact>] ``Let rec untyped evaluating a polymorphic function`` () =
     let env = []
     
     let actualType, _ = typeinfer_expr env expr
-    let expectedType = TyArrow (TyVar 10, TyVar 13)
+    let expectedType = TyArrow (TyVar 19, TyVar 20)
     
     Assert.Equal(expectedType, actualType)
 

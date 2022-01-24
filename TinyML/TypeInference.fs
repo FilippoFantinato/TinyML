@@ -36,23 +36,15 @@ let apply_subst_env (env: scheme env) (s: subst) =
             (x, apply_subst_scheme sch s)
    )
 
-let rec add_sub_var (i : tyvar) (j : tyvar) (sub : subst) =
-    match sub with
+let rec compute_other_side_tyvar (tv : tyvar) (newTypeV : tyvar) (s : subst) =
+    match s with
     | [] -> []
     | (v, t) :: s ->
-        if v = i then (j, t) :: (v, t) :: add_sub_var i j s
-        else (v, t) :: add_sub_var i j s
+        let tail = (v, t) :: compute_other_side_tyvar tv newTypeV s
+        if v = tv then (newTypeV, t) :: tail
+        else tail
 
 let compose_subst (s1 : subst) (s2 : subst) : subst =
-    let rec compose_subst_rec (s1: subst) (s2 : subst) =
-        match s2 with
-        | [] -> s1
-        | (i, ti) :: s2 ->
-            let tn = apply_subst ti s1
-            match tn with 
-            | TyVar j -> (add_sub_var i j s1) @ compose_subst_rec s1 s2
-            | _ -> (i, tn) :: compose_subst_rec s1 s2
-    
     if List.isEmpty s1 then
         s2
     else
@@ -65,7 +57,7 @@ let compose_subst (s1 : subst) (s2 : subst) : subst =
                           let newType = apply_subst t s1
                           
                           match newType with
-                          | TyVar j -> (add_sub_var tv j s1) @ acc
+                          | TyVar newTypeV -> (compute_other_side_tyvar tv newTypeV s1) @ acc
                           | _ -> (tv, newType) :: acc
                     ) []
             |> (@) (s1 |> List.filter (
@@ -136,6 +128,33 @@ let instantiation (ForAll (tvs, t)) =
 
 // type inference
 //
+
+let rec unify_binops ops (e1t, e1s) (e2t, e2s) err =
+    match ops with
+    | [] -> match err with
+                | Some err -> raise err
+                | None _ -> type_error "unify_operations: there is nothing to with try to unify the operation"
+    | (t1, t2, tr) :: ops ->
+           try
+               let s1 = compose_subst (unify t1 e1t) e1s
+               let s2 = compose_subst (unify t2 e2t) e2s
+
+               (tr, compose_subst s1 s2)
+           with err ->
+               unify_binops ops (e1t, e1s) (e2t, e2s) (Some err)
+               
+let rec unify_unops ops (et, es) err =
+    match ops with
+    | [] -> match err with
+                | Some err -> raise err
+                | None _ -> type_error "unify_operations: there is nothing to with try to unify the operation"
+    | (t, tr) :: ops ->
+           try
+               let s = compose_subst (unify t et) es
+
+               (tr, s)
+           with err ->
+               unify_unops ops (et, es) (Some err)
 
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     match e with
@@ -275,33 +294,14 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         
         let e2t, e2s = typeinfer_expr env e2
         
-        try 
-            let s1 = compose_subst (unify TyInt e1t) e1s
-            
-            try 
-                let s2 = compose_subst (unify TyInt e2t) e2s
-                
-                (TyInt, compose_subst s1 s2)
-            with e ->
-                try 
-                    let s2 = compose_subst (unify TyFloat e2t) e2s
-                    (TyFloat, compose_subst s1 s2)
-                with e ->
-                    raise e
-        with e ->
-            try 
-                let s1 = compose_subst (unify TyFloat e1t) e1s
-                
-                let s2 = try
-                            compose_subst (unify TyInt e2t) e2s
-                         with e ->
-                            try 
-                                compose_subst (unify TyFloat e2t) e2s
-                            with e ->
-                                raise e
-                
-                (TyFloat, compose_subst s1 s2)
-            with e -> raise e
+        let possibleUnifications = [
+                 (TyInt, TyInt, TyInt)
+                 (TyInt, TyFloat, TyFloat)
+                 (TyFloat, TyInt, TyFloat)
+                 (TyFloat, TyFloat, TyFloat)
+        ]
+        
+        unify_binops possibleUnifications (e1t, e1s) (e2t, e2s) None
 
     | BinOp (e1, ("<" | "<=" | ">" | ">=" | "=" | "<>" as _), e2) ->
         let e1t, e1s = typeinfer_expr env e1
@@ -309,54 +309,15 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let env = apply_subst_env env e1s
         
         let e2t, e2s = typeinfer_expr env e2
-
-//        let possibleUnifications =[
-//                 (TyInt, TyInt, TyBool)
-//                 (TyInt, TyFloat, TyBool)
-//                 (TyFloat, TyInt, TyBool)
-//                 (TyFloat, TyFloat, TyBool)
-//        ]
-//
-////        possibleUnifications |>
-////            List.map (
-////                fun acc (t1, t2, tr) ->
-////                    try
-////                       let s1 = compose_subst (unify t1 e1t) e1s
-////                       let s2 = compose_subst (unify t2 e2t) e2s
-////                       
-////                       (tr, compose_subst s1 s2)
-////                    with e ->
-////                        (TyUnit, [])
-////                ) (TyUnit, [])
-            
-        let s = try
-                    let s1 = compose_subst (unify TyInt e1t) e1s
-                    
-                    let s2 = try 
-                                compose_subst (unify TyInt e2t) e2s
-                             with e ->
-                                try 
-                                    compose_subst (unify TyFloat e2t) e2s
-                                with e ->
-                                    raise e
-                                    
-                    compose_subst s1 s2
-                with e ->
-                    try
-                        let s1 = compose_subst (unify TyFloat e1t) e1s
-                        
-                        let s2 = try
-                                    compose_subst (unify TyInt e2t) e2s
-                                 with e ->
-                                    try 
-                                        compose_subst (unify TyFloat e2t) e2s
-                                    with e ->
-                                        raise e
-
-                        compose_subst s1 s2
-                    with e -> raise e
         
-        (TyBool, s)
+        let possibleUnifications = [
+                 (TyInt, TyInt, TyBool)
+                 (TyInt, TyFloat, TyBool)
+                 (TyFloat, TyInt, TyBool)
+                 (TyFloat, TyFloat, TyBool)
+        ]
+
+        unify_binops possibleUnifications (e1t, e1s) (e2t, e2s) None
 
     | BinOp (e1, ("and" | "or" as _), e2) ->
         let e1t, e1s = typeinfer_expr env e1
@@ -371,19 +332,17 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         
         (TyBool, s)
         
-    // TODO: Improve or modify the error system
     | BinOp (_, op, _) -> unexpected_error "typeinfer_expr: unsupported binary operator (%s)" op
 
     | UnOp ("-", e) ->
         let et, es = typeinfer_expr env e
         
-        try
-            (TyInt, compose_subst (unify TyInt et) es)
-        with e ->
-            try
-                (TyFloat, compose_subst (unify TyFloat et) es)
-            with e ->
-                raise e
+        let possibleUnifications = [
+                 (TyInt, TyInt)
+                 (TyFloat, TyFloat)
+        ]
+
+        unify_unops possibleUnifications (et, es) None
  
     | UnOp ("not", e) ->
         let et, es = typeinfer_expr env e

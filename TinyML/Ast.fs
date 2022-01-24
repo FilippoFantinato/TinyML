@@ -136,7 +136,7 @@ let rec pretty_expr e =
 
     | Lambda (x, None, e) -> sprintf "fun %s -> %s" x (pretty_expr e)
     | Lambda (x, Some t, e) -> sprintf "fun (%s : %s) -> %s" x (pretty_ty t) (pretty_expr e)
-    
+
     // TODO pattern-match sub-application cases
     | App (e1, e2) -> sprintf "%s %s" (pretty_expr e1) (pretty_expr e2)
 
