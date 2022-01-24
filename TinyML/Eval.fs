@@ -6,48 +6,49 @@
 module TinyML.Eval
 
 open Ast
-open TinyML
 
-// TODO: Try to perform binary ops int this way
-//let inline (@+) x y = x + y
-//let inline (@-) x y = x - y
-//let inline (@*) x y = x * y
-//let inline (@/) x y = x / y
+let get_cleaned_env (env : value env) id e =
+    let rec get_used_variables e  =
+        match e with
+        | Lit _ -> Set.empty
+        | Var id -> Set.singleton id
+        | App (e1, e2) -> Set.union (get_used_variables e1) (get_used_variables e2)
+        | Lambda (x, _, e) -> Set.difference (get_used_variables e) (Set.singleton x)
+        | Let (x, _, e1, e2) ->
+            Set.union
+                (get_used_variables e1)
+                (Set.difference (get_used_variables e2) (Set.singleton x))
+        | LetRec (x, _, e1, e2) ->
+            Set.union
+                (Set.difference (get_used_variables e1) (Set.singleton x))
+                (Set.difference (get_used_variables e2) (Set.singleton x))
+        | IfThenElse (e1, e2, e3o) ->
+            Set.union
+                (Set.union (get_used_variables e1) (get_used_variables e2))
+                (match e3o with
+                | None -> Set.empty
+                | Some e3 -> get_used_variables e3)
+        | Tuple es -> es |> List.fold (
+                                fun acc el ->
+                                    Set.union (get_used_variables el) acc
+                            ) Set.empty
+        | BinOp (e1, _, e2) -> Set.union (get_used_variables e1) (get_used_variables e2)
+        | UnOp (_, e) -> get_used_variables e
+        | _ -> unexpected_error "get_cleaned_env: unsupported expression: %s [AST: %A]" (pretty_expr e) e
 
-//let get_cleaned_env (env : value env) e =
-//    let remove_from_list el = List.filter (fun v -> v <> el)
-//    
-//    let rec get_used_variables e acc =
-//        match e with
-//        | Lit _ -> []
-//        | Var id -> [id]
-//        | App (e1, e2) -> acc @ ((get_used_variables e1 acc) |> (get_used_variables e2))
-//        | Lambda (x, _, e) -> acc @ (get_used_variables e acc |> remove_from_list x)
-//        | Let (x, _, e1, e2) -> acc @ (get_used_variables e1 acc |> (get_used_variables e2) |> remove_from_list x)
-//        | LetRec (x, _, e1, e2) -> acc @ ((get_used_variables e1 acc |> remove_from_list x) |>
-//                                   (get_used_variables e2) |> remove_from_list x)
-//        | IfThenElse (e1, e2, e3o) ->
-//            acc @
-//            (get_used_variables e1 acc |>
-//            get_used_variables e2 |>
-//            match e3o with
-//            | None -> id
-//            | Some e3 -> get_used_variables e3)
-//        | Tuple es -> es |> List.fold (fun acc el -> acc @ get_used_variables el acc) []
-//        | BinOp (e1, _, e2) -> (get_used_variables e1 acc) |> (get_used_variables e2)
-//        | UnOp (_, e) -> get_used_variables e acc
-//
-//    let usedVariables = get_used_variables e (env |> List.map (fun (id, _) -> id))
-//    usedVariables |> List.map (
-//        fun el -> List.find (fun (id, _) -> id = el) env
-//    )
+    let usedVariables = Set.difference (get_used_variables e) (Set.singleton id)
+    usedVariables
+          |> Seq.map (
+            fun el -> List.find (fun (id, _) -> id = el) env
+            )
+          |> Seq.toList
 
 let rec eval_expr (env : value env) (e : expr) : value =
     match e with
     | Lit lit -> VLit lit
 
     | Lambda (x, _, e) ->
-        Closure (env, x, e)
+        Closure (get_cleaned_env env x e, x, e)
     
     | App (e1, e2) ->
         let v1 = eval_expr env e1
@@ -58,8 +59,11 @@ let rec eval_expr (env : value env) (e : expr) : value =
         | _ -> unexpected_error "eval_expr: non-closure in left side of application: %s" (pretty_value v1)
         
     | Var x ->
-        let _, v = List.find (fun (y, _) -> x = y) env
-        v
+        try
+            let _, v = List.find (fun (y, _) -> x = y) env
+            v
+        with e ->
+            unexpected_error $"eval_expr: unbounded variable {x}"
         
     | Let (x, _, e1, e2) ->
         let v1 = eval_expr env e1
@@ -68,11 +72,16 @@ let rec eval_expr (env : value env) (e : expr) : value =
     | LetRec (f, _, e1, e2) -> 
         let v1 = eval_expr env e1
         let v1 = match v1 with
-                    | Closure (venv1, x, e) -> RecClosure (venv1, f, x, e)
+                    | Closure (venv1, x, e) ->
+                        RecClosure (
+                            venv1 |> List.filter (fun (id, _) -> id <> f),
+                            f,
+                            x,
+                            e
+                        )
                     | _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
         eval_expr ((f, v1) :: env) e2
-        
-        
+
     | IfThenElse (e1, e2, None) ->
         let v1 = eval_expr env e1
         match v1 with

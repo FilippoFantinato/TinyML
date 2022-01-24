@@ -1,6 +1,5 @@
 module TinyML.TypeInferenceTests
 
-open System
 open TinyML.TypeInference
 open TinyML.Ast
 open Xunit
@@ -30,31 +29,12 @@ let [<Fact>] ``Apply substitutions to an arrow type without free vars`` () =
     
     let ty = TyArrow (TyVar 1, TyVar 2)
     let actual = apply_subst ty s
-    
+
     let expected = TyArrow (TyArrow (TyInt, TyBool), TyArrow (TyInt, TyBool))
         
-    Assert.Equal(expected, actual)    
+    Assert.Equal(expected, actual)
 
-let [<Fact>] ``Composition between two substitutions`` () =
-    let s1: subst = [
-        (3, TyVar 1)
-        (4, TyVar 5)
-        (6, TyVar 6)
-    ]
-    let s2: subst = [
-        (1, TyVar 2)
-        (2, TyVar 7)
-    ]
-    let actual = compose_subst s1 s2
-    
-    let expected: subst = [
-        (3, TyVar 1)
-        (4, TyVar 5)
-    ]
-    
-    Assert.Equal<subst>(expected, actual)
-   
-// Let   
+// Let
     
 let [<Fact>] ``Let typed with valid expressions`` () =
     let x = "x"
@@ -83,7 +63,7 @@ let [<Fact>] ``Let untyped evaluating f int->'a->'a`` () =
     let env = []
 
     let actualType, _ = typeinfer_expr env expr
-//    App (Var "x", Lit (LInt 5))
+
     let alpha = TyVar 5
     let expectedType = TyArrow(TyArrow (TyInt, alpha), alpha)
     
@@ -579,7 +559,7 @@ let [<Fact>] ``Tuple returned by a lambda with valid exprs`` () =
                      )
     let env = []
 
-    let actualType, actualSubstitutions = typeinfer_expr env expr
+    let actualType, _ = typeinfer_expr env expr
         
     let expectedType = TyArrow (TyInt, TyTuple [TyInt; TyInt])
     

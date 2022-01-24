@@ -1,6 +1,5 @@
 module TinyML.EvalTests
 
-open System.Reflection
 open TinyML.Ast
 open TinyML.Eval
 open Xunit
@@ -8,32 +7,26 @@ open Xunit
 let [<Fact>] ``If then else guard true`` () =
     let ifExpr = IfThenElse(Lit(LBool true), Lit(LInt 5), Some(Lit(LInt 6)))
     let venv = []
-    let actualValue = eval_expr venv ifExpr
-    let actual = match actualValue with
-                    | VLit(LInt n) -> n
-    let expected = 5
+    let actual = eval_expr venv ifExpr
+    let expected = VLit (LInt 5)
     
     Assert.Equal(expected, actual)
 
 let [<Fact>] ``Unary operator not with valid value`` () =
     let notExpr = UnOp("not", Lit(LBool true))
     let venv = []
-    let actualValue = eval_expr venv notExpr
-    let actual = match actualValue with
-                    | VLit(LBool n) -> n
+    let actual = eval_expr venv notExpr
                     
-    let expected = false
+    let expected = VLit (LBool false)
     
     Assert.Equal(expected, actual)
 
 let [<Fact>] ``Unary operator minus with valid value`` () =
     let minusExpr = UnOp("-", Lit(LInt 5))
     let venv = []
-    let actualValue = eval_expr venv minusExpr
-    let actual = match actualValue with
-                    | VLit(LInt n) -> n
+    let actual = eval_expr venv minusExpr
                     
-    let expected = -5
+    let expected = VLit (LInt -5)
     
     Assert.Equal(expected, actual)
 
@@ -44,13 +37,8 @@ let [<Fact>] ``Tuple with complex ops`` () =
         App(Lambda("x", None, BinOp(Var("x"), "+", Lit(LInt 1))), Lit(LInt 5))
     ])
     let venv = []
-    let actualValue = eval_expr venv tupleExpr
-    let actual = match actualValue with
-                    | VTuple tuple ->
-                        match tuple with
-                        | (VLit(LInt v1)) :: (VLit(LInt v2)) :: [ VLit(LInt v3) ] ->
-                            [v1; v2; v3]
+    let actual = eval_expr venv tupleExpr
                             
-    let expected = [5; -8; 6]
+    let expected = VTuple [VLit (LInt 5); VLit (LInt -8); VLit (LInt 6)]
     
-    Assert.Equal<int list>(expected, actual)
+    Assert.Equal(expected, actual)

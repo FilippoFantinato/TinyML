@@ -37,12 +37,15 @@ let apply_subst_env (env: scheme env) (s: subst) =
    )
 
 let rec compute_other_side_tyvar (tv : tyvar) (newTypeV : tyvar) (s : subst) =
-    match s with
-    | [] -> []
-    | (v, t) :: s ->
-        let tail = (v, t) :: compute_other_side_tyvar tv newTypeV s
-        if v = tv then (newTypeV, t) :: tail
-        else tail
+    ([], s) ||> List.fold (
+                    fun acc (v, t) ->
+                        let tail = (v, t) :: acc
+                        if v = tv
+                        then
+                            (newTypeV, t) :: tail
+                        else
+                            tail
+                    )
 
 let compose_subst (s1 : subst) (s2 : subst) : subst =
     if List.isEmpty s1 then
@@ -112,10 +115,13 @@ let rec freevars_environment env =
     | [] -> Set.empty
     | (_, s) :: xs -> Set.union (freevars_scheme s) (freevars_environment xs)
 
-let mutable tyVarReached = 0
+let mutable private tyVarIndex = 0
 let generate_fresh_tyvar () =
-    tyVarReached <- tyVarReached + 1
-    tyVarReached
+    tyVarIndex <- tyVarIndex + 1
+    tyVarIndex
+    
+let reset_tyvar_index =
+    tyVarIndex <- 0
 
 let generalization env t =
     ForAll (Set.toList (Set.difference (freevars_ty t) (freevars_environment env)), t)
@@ -166,8 +172,11 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     | Lit LUnit -> (TyUnit, [])
 
     | Var x ->
-        let _, t = List.find (fun (y, _) -> x = y) env
-        instantiation t
+        try
+            let _, t = List.find (fun (y, _) -> x = y) env
+            instantiation t
+        with e ->
+            type_error $"typeinfer_expr: unbounded variable {x}"
 
     | Let (x, None, e1, e2) ->
         let e1t, e1s = typeinfer_expr env e1
@@ -182,15 +191,15 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
     | Let (x, Some t1, e1, e2) ->
         let e1t, e1s = typeinfer_expr env e1
-        unify e1t t1 |> ignore
+        let e1s = compose_subst (unify e1t t1) e1s 
 
-        let env = ((x, generalization env e1t) :: env, e1s) ||> apply_subst_env
+        let env = ((x, generalization env t1) :: env, e1s) ||> apply_subst_env
         
         let e2t, e2s = typeinfer_expr env e2
         
         let s = compose_subst e2s e1s
 
-        (e2t, s)
+        (apply_subst e2t s, s)
  
     | LetRec (x, None, e1, e2) ->
         let xT = TyVar (generate_fresh_tyvar ())
@@ -206,20 +215,19 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
         let s = compose_subst e1s e2s
         
-        (e2t, s)
+        (apply_subst e2t s, s)
 
     | LetRec (x, Some t, e1, e2) ->
-        let xT = TyVar (generate_fresh_tyvar ())
-        let e1t, e1s = typeinfer_expr ((x, ForAll ([], xT)) :: env) e1
-        unify e1t t |> ignore
-        
-        let env = (((x, generalization env e1t) :: env), e1s) ||> apply_subst_env
+        let e1t, e1s = typeinfer_expr ((x, ForAll ([], t)) :: env) e1
+        let e1s = compose_subst (unify e1t t) e1s
+
+        let env = (((x, generalization env t) :: env), e1s) ||> apply_subst_env
         
         let e2t, e2s = typeinfer_expr env e2
         
         let s = compose_subst e2s e1s
         
-        (e2t, s)
+        (apply_subst e2t s, s)
 
     | Lambda(x, None, e) ->
         let parameterT = TyVar (generate_fresh_tyvar ())
@@ -258,8 +266,8 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         match e3o with
         | None ->
             let e2s = compose_subst (unify TyUnit e2t) e2s
-            
-            let s = compose_subst e2s e1s
+
+            let s = compose_subst e1s e2s
 
             (TyUnit, s)
         | Some e3 ->
