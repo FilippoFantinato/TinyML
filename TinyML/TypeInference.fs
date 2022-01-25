@@ -120,7 +120,7 @@ let generate_fresh_tyvar () =
     tyVarIndex <- tyVarIndex + 1
     tyVarIndex
     
-let reset_tyvar_index =
+let reset_tyvar_index () =
     tyVarIndex <- 0
 
 let generalization env t =
@@ -144,8 +144,10 @@ let rec unify_binops ops (e1t, e1s) (e2t, e2s) err =
            try
                let s1 = compose_subst (unify t1 e1t) e1s
                let s2 = compose_subst (unify t2 e2t) e2s
+               
+               let s = compose_subst s1 s2
 
-               (tr, compose_subst s1 s2)
+               (apply_subst tr s, compose_subst s1 s2)
            with err ->
                unify_binops ops (e1t, e1s) (e2t, e2s) (Some err)
                
@@ -278,7 +280,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             
             let s = compose_subst (compose_subst e1s e2s) e3s
 
-            (e2t, s)
+            (apply_subst e2t s, s)
     
     | Tuple es ->
         List.foldBack (

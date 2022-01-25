@@ -61,10 +61,12 @@ let [<Fact>] ``Let untyped with valid expressions`` () =
 let [<Fact>] ``Let untyped evaluating f int->'a->'a`` () =
     let expr = LetIn((false, "f", None, Lambda ("x", None, App (Var "x", Lit (LInt 5)))), Var "f")
     let env = []
+    
+    reset_tyvar_index ()
 
     let actualType, _ = typeinfer_expr env expr
 
-    let alpha = TyVar 5
+    let alpha = TyVar 3
     let expectedType = TyArrow(TyArrow (TyInt, alpha), alpha)
     
     Assert.Equal(expectedType, actualType)
@@ -102,10 +104,12 @@ let [<Fact>] ``Let untyped using the same variable for two types`` () =
 let [<Fact>] ``Let rec untyped evaluating f int->'a`` () =
     let expr = LetIn((true, "f", None, Lambda ("x", None, App (Var "f", Lit (LInt 5)))), Var "f")
     let env = []
+    
+    reset_tyvar_index ()
 
     let actualType, _ = typeinfer_expr env expr
 
-    let expectedType = TyArrow(TyInt, TyVar 9)
+    let expectedType = TyArrow(TyInt, TyVar 4)
 
     Assert.Equal(expectedType, actualType)
 
@@ -131,11 +135,13 @@ let [<Fact>] ``Let rec untyped applying a wrong argument to f`` () =
 let [<Fact>] ``Let rec untyped evaluating an application`` () =
     let expr = LetIn((true, "f", None, Lambda ("x", None, App (Var "f", Lit (LInt 5)))), App (Var "f", Lit (LInt 5)))
     let env = []
-    
+
+    reset_tyvar_index ()
+
     let actualType, _ = typeinfer_expr env expr
     
-    let expectedType = TyVar 7
-    
+    let expectedType = TyVar 5
+
     Assert.Equal(expectedType, actualType)
 
 let [<Fact>] ``Let rec untyped evaluating a polymorphic function`` () =
@@ -143,8 +149,10 @@ let [<Fact>] ``Let rec untyped evaluating a polymorphic function`` () =
                      LetIn ((false, "y", None, App (Var "f", Lit (LInt 5))), Var "f"))
     let env = []
     
+    reset_tyvar_index ()
+    
     let actualType, _ = typeinfer_expr env expr
-    let expectedType = TyArrow (TyVar 19, TyVar 20)
+    let expectedType = TyArrow (TyVar 7, TyVar 8)
     
     Assert.Equal(expectedType, actualType)
 
@@ -194,6 +202,8 @@ let [<Fact>] ``Lambda polymorphic with any parameter poly`` () =
     let lambda = Lambda ("x", None, Lambda("y", None, Tuple [Var "y"; Var "x"]))
     let env = []
     
+    reset_tyvar_index ()
+    
     let actualType, _ = typeinfer_expr env lambda
     
     let alpha = TyVar 1
@@ -206,10 +216,12 @@ let [<Fact>] ``Lambda polymorphic with application`` () =
     let lambda = Lambda ("x", None, Lambda("y", None, App (Var "x", Var "y")))
     let env = []
     
+    reset_tyvar_index ()
+    
     let actualType, _ = typeinfer_expr env lambda
 
     let alpha = TyVar 2
-    let beta =  TyVar 5
+    let beta =  TyVar 3
     let expectedType = TyArrow(TyArrow (alpha, beta), TyArrow(alpha, beta))
     
     Assert.Equal(expectedType, actualType)
