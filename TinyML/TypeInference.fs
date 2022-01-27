@@ -36,17 +36,6 @@ let apply_subst_env (env: scheme env) (s: subst) =
             (x, apply_subst_scheme sch s)
    )
 
-let rec compute_other_side_tyvar (tv : tyvar) (newTypeV : tyvar) (s : subst) =
-    ([], s) ||> List.fold (
-                    fun acc (v, t) ->
-                        let tail = (v, t) :: acc
-                        if v = tv
-                        then
-                            (newTypeV, t) :: tail
-                        else
-                            tail
-                    )
-
 let compose_subst (s1 : subst) (s2 : subst) : subst =
     if List.isEmpty s1 then
         s2
@@ -58,7 +47,7 @@ let compose_subst (s1 : subst) (s2 : subst) : subst =
             |> List.fold (
                       fun acc (tv, t) ->
                           let newType = apply_subst t s1
-                          // (compute_other_side_tyvar tv newTypeV s1)
+                          
                           match newType with
                           | TyVar newTypeV -> (newTypeV, apply_subst (TyVar tv) s1) :: acc
                           | _ -> (tv, newType) :: acc
