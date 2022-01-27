@@ -70,7 +70,7 @@ let rec eval_expr (env : value env) (e : expr) : value =
         eval_expr ((x, v1) :: env) e2
 
     | LetRec (f, _, e1, e2) -> 
-        let v1 = eval_expr env e1
+        let v1 = eval_expr ((f, VLit LUnit):: env) e1
         let v1 = match v1 with
                     | Closure (venv1, x, e) ->
                         RecClosure (

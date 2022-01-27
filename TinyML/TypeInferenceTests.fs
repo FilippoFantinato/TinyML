@@ -140,7 +140,7 @@ let [<Fact>] ``Let rec untyped evaluating an application`` () =
 
     let actualType, _ = typeinfer_expr env expr
     
-    let expectedType = TyVar 5
+    let expectedType = TyVar 3
 
     Assert.Equal(expectedType, actualType)
 

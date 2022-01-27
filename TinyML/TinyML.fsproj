@@ -43,7 +43,8 @@
         <Compile Include="TypeChecker.fs" />
         <Compile Include="Eval.fs" />
         <Compile Include="EvalTests.fs" />
-        <None Include="App.config" /> 
+        <None Include="App.config" />
+        <Compile Include="TinyMLTests.fs" /> 
         <Compile Include="Main.fs" />
     </ItemGroup>
 </Project>

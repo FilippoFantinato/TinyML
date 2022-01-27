@@ -58,9 +58,9 @@ let compose_subst (s1 : subst) (s2 : subst) : subst =
             |> List.fold (
                       fun acc (tv, t) ->
                           let newType = apply_subst t s1
-                          
+                          // (compute_other_side_tyvar tv newTypeV s1)
                           match newType with
-                          | TyVar newTypeV -> (compute_other_side_tyvar tv newTypeV s1) @ acc
+                          | TyVar newTypeV -> (newTypeV, apply_subst (TyVar tv) s1) :: acc
                           | _ -> (tv, newType) :: acc
                     ) []
             |> (@) (s1 |> List.filter (
@@ -189,7 +189,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
         let s = compose_subst e2s e1s
         
-        (apply_subst e2t s, s)
+        (e2t, s)
 
     | Let (x, Some t1, e1, e2) ->
         let e1t, e1s = typeinfer_expr env e1
@@ -201,7 +201,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         
         let s = compose_subst e2s e1s
 
-        (apply_subst e2t s, s)
+        (e2t, s)
  
     | LetRec (x, None, e1, e2) ->
         let xT = TyVar (generate_fresh_tyvar ())
@@ -215,9 +215,9 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         
         let e2t, e2s = typeinfer_expr env e2
 
-        let s = compose_subst e1s e2s
-        
-        (apply_subst e2t s, s)
+        let s = compose_subst e2s e1s
+
+        (e2t, s)
 
     | LetRec (x, Some t, e1, e2) ->
         let e1t, e1s = typeinfer_expr ((x, ForAll ([], t)) :: env) e1
@@ -229,7 +229,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         
         let s = compose_subst e2s e1s
         
-        (apply_subst e2t s, s)
+        (e2t, s)
 
     | Lambda(x, None, e) ->
         let parameterT = TyVar (generate_fresh_tyvar ())
@@ -243,7 +243,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
         (apply_subst (TyArrow (t1, bt)) bs, bs)
 
-    | App (e1, e2) -> 
+    | App (e1, e2) ->
         let e1t, e1s = typeinfer_expr env e1
         
         let env = apply_subst_env env e1s
@@ -292,7 +292,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                 let env = apply_subst_env env s
                 let et, es = typeinfer_expr env el
                 
-                let s = compose_subst s es
+                let s = compose_subst es s
 
                 (TyTuple (et :: t), s)
             ) es (TyTuple [], [])
