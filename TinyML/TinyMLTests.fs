@@ -39,26 +39,6 @@ let [<Fact>] ``Lambda returning a tuple (int, int)`` () =
     Assert.Equal(expectedType, actualType)
     Assert.Equal(expectedValue, actualValue)
     
-let [<Fact>] ``Application of a typed function`` () =
-    let prg = """
-       let rec f (x: int) (y: int) : (int -> int -> float) =
-            if x > 2
-            then (-1+x)*(y+1.0)
-            else (x+1.0)*(-1+y)
-
-        in f 4 0
-    """
-    let prg = compute_prg_str prg
-    
-    let tenv, venv = [], []
-    let actualType, actualValue = interpret_expr tenv venv prg
-
-    let expectedType = TyFloat
-    let expectedValue = VLit (LFloat 3)
-
-    Assert.Equal(expectedType, actualType)
-    Assert.Equal(expectedValue, actualValue)
-    
 let [<Fact>] ``Application of a high order full polymorphic function`` () =
     let prg = """
         let f x y = x y

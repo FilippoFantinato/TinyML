@@ -108,7 +108,7 @@ let mutable private tyVarIndex = 0
 let generate_fresh_tyvar () =
     tyVarIndex <- tyVarIndex + 1
     tyVarIndex
-    
+
 let reset_tyvar_index () =
     tyVarIndex <- 0
 
@@ -133,7 +133,7 @@ let rec unify_binops ops (e1t, e1s) (e2t, e2s) err =
            try
                let s1 = compose_subst (unify t1 e1t) e1s
                let s2 = compose_subst (unify t2 e2t) e2s
-               
+
                let s = compose_subst s1 s2
 
                (apply_subst tr s, compose_subst s1 s2)
@@ -177,7 +177,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let e2t, e2s = typeinfer_expr env e2
 
         let s = compose_subst e2s e1s
-        
+
         (e2t, s)
 
     | Let (x, Some t1, e1, e2) ->
@@ -299,14 +299,14 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                  (TyFloat, TyInt, TyFloat)
                  (TyFloat, TyFloat, TyFloat)
         ]
-        
+
         unify_binops possibleUnifications (e1t, e1s) (e2t, e2s) None
 
     | BinOp (e1, ("<" | "<=" | ">" | ">=" | "=" | "<>" as _), e2) ->
         let e1t, e1s = typeinfer_expr env e1
         
         let env = apply_subst_env env e1s
-        
+                
         let e2t, e2s = typeinfer_expr env e2
         
         let possibleUnifications = [

@@ -113,7 +113,6 @@ let [<Fact>] ``Let rec untyped evaluating f int->'a`` () =
 
     Assert.Equal(expectedType, actualType)
 
-//BinOp (App (Var "f", Lit (LInt 5)), "+", Lit (LInt 5)))
 
 let [<Fact>] ``Let rec untyped evaluating f int -> int`` () =
     let expr = LetIn((true, "f", None, Lambda ("x", None, BinOp (App (Var "f", Var "x"), "+", Var "x"))), Var "f")
