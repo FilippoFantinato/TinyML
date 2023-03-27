@@ -182,10 +182,6 @@ let rec pretty_expr e =
 let rec pretty_value v =
     match v with
     | VLit lit -> pretty_lit lit
-
     | VTuple vs -> pretty_tupled pretty_value vs
-
     | Closure (env, x, e) -> sprintf "<|%s;%s;%s|>" (pretty_env pretty_value env) x (pretty_expr e)
-    
     | RecClosure (env, f, x, e) -> sprintf "<|%s;%s;%s;%s|>" (pretty_env pretty_value env) f x (pretty_expr e)
-    
