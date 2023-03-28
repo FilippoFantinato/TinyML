@@ -1,21 +1,26 @@
 TinyML
 ======
 
-TinyML is an interpreter for a small functional language.
-The grammar of the 
+TinyML is an interpreter for a small functional language with type inference.
+I'm using this project for experiencing in type systems and crafting programming languages.
 
-.. math::
+..  
+    The grammar of the programming language is the following:
     
-    M ::= x \; | \; let \; [rec] \; x \; [:T] \; = \; M_1 \; in \; M_2 \; | \; M_1 \; bin\_op \; M_2 \; | \; un\_op M  \; | \; M_1 \; M_2 \; | \; fn \; (x \; [:T]) \; [:T] \to M
+    .. math::
 
-where 
+        M ::= x 
+            | let [rec] x [:T] = M_1 in M_2 
+            | M_1 bin_op M_2 
+            | un_op M   
+            | fn (x [:T]) [:T] -> M
+            | M_1 M_2
 
-.. math::
-    
-    T ::= float \; | \; int \; | \; char \; | \; string \; | \; bool \; | \; unit \; | \; T \to T \; | \; (T_1, T_2, \dots , T_n)
+    where 
 
-.. math::
+    .. math::
 
-    bin\_op ::= + \; | \; - \; | \; * \; | \; / \; | \; 
-    \newline
-    un\_op ::= - \; | \; not
+        T ::= float | int | char | string | bool | unit | T -> T | (T_1, T_2,..., T_n)
+
+        bin_op ::= + | - | * | / | % | < | <= | > | >= | = | <> 
+        un_op ::= - | not
