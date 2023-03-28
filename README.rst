@@ -1,6 +1,12 @@
 TinyML
 ======
 
+.. image:: https://github.com/FilippoFantinato/TinyML/actions/workflows/build-develop.yml/badge.svg?branch=develop
+   :target: https://github.com/FilippoFantinato/TinyML/actions/workflows/build-develop.yml
+   
+.. image:: https://github.com/FilippoFantinato/TinyML/actions/workflows/build-main.yml/badge.svg?branch=main
+   :target: https://github.com/FilippoFantinato/TinyML/actions/workflows/build-main.yml
+   
 TinyML is an interpreter for a small functional language with type inference.
 I'm using this project for experiencing in type systems and crafting programming languages.
 
