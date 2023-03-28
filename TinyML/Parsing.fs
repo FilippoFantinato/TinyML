@@ -1,7 +1,6 @@
 ﻿(*
 * F# Common Library
 * Parsing.fs: parsing facilities
-* (C) 2007-2021 Alvise Spano' @ Universita' Ca' Foscari di Venezia
 *)
 
 module FSharp.Common.Parsing

@@ -97,6 +97,45 @@ type value =
 
 type interactive = IExpr of expr | IBinding of binding
 
+let rec same_type t1 t2 = 
+    match (t1, t2) with
+    | (TyName t1, TyName t2) -> t1 = t2
+    | (TyArrow (t11, t12), TyArrow (t21, t22)) -> same_type t11 t21 && same_type t12 t22
+    | (TyVar _, TyVar _) -> true
+    | (TyTuple ts1, TyTuple ts2) -> List.forall2 (same_type) ts1 ts2
+    | _ -> false
+
+let rec same_ast e1 e2 = 
+    match (e1, e2) with
+    | (Lit (LInt i1), Lit (LInt i2)) -> i1 = i2
+    | (Lit (LFloat f1), Lit (LFloat f2)) -> f1 = f2
+    | (Lit (LString s1), Lit (LString s2)) -> s1 = s2
+    | (Lit (LChar c1), Lit (LChar c2)) -> c1 = c2
+    | (Lit (LBool b1), Lit (LBool b2)) -> b1 = b2
+    | (Lit LUnit, Lit LUnit) -> true
+
+    | (Var x1, Var x2) -> x1 = x2
+    
+    | (Let (x1, None, e1, ein1), Let (x2, None, e2, ein2)) -> x1 = x2 && same_ast e1 e2 && same_ast ein1 ein2
+    | (Let (x1, Some t1, e1, ein1), Let (x2, Some t2, e2, ein2)) -> x1 = x2 && same_type t1 t2 && same_ast e1 e2 && same_ast ein1 ein2
+    | (LetRec (x1, None, e1, ein1), Let (x2, None, e2, ein2)) -> x1 = x2 && same_ast e1 e2 && same_ast ein1 ein2
+    | (LetRec (x1, Some t1, e1, ein1), Let (x2, Some t2, e2, ein2)) -> x1 = x2 && same_type t1 t2 && same_ast e1 e2 && same_ast ein1 ein2
+
+    | (Lambda(x1, None, e1), Lambda(x2, None, e2)) -> x1 = x2 && same_ast e1 e2
+    | (Lambda(x1, Some t1, e1), Lambda(x2, Some t2, e2)) -> x1 = x2 && same_type t1 t2 && same_ast e1 e2
+
+    | (App (e11, e12), App (e21, e22)) -> same_ast e11 e12 && same_ast e21 e22
+
+    | (IfThenElse (e11, e12, None), IfThenElse (e21, e22, None)) -> same_ast e11 e12 && same_ast e21 e22
+    | (IfThenElse (e11, e12, Some e13), IfThenElse (e21, e22, Some e23)) -> same_ast e11 e12 && same_ast e21 e22 && same_ast e13 e23
+    
+    | (Tuple es1, Tuple es2) -> List.forall2 (same_ast) es1 es2
+    
+    | (BinOp (e11, op1, e12), BinOp (e21, op2, e22)) -> same_ast e11 e21 && op1 = op2 && same_ast e12 e22
+    | (UnOp (op1, e1), UnOp (op2, e2)) -> op1 = op2 && same_ast e1 e2
+    
+    | _ -> false
+
 // pretty printers
 //
 

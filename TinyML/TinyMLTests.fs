@@ -61,7 +61,7 @@ let [<Fact>] ``Application of a high order full polymorphic function`` () =
         VLit (LString "ciao")
     ]
     
-    Assert.Equal(expectedType, actualType)
+    Assert.True(same_type expectedType actualType)
     Assert.Equal(expectedValue, actualValue)
     
     
@@ -100,7 +100,7 @@ let [<Fact>] ``Application of a lambda returning a closure where the argument is
     let expectedType = TyTuple [TyInt; TyString; TyArrow (alpha, alpha)]
     let expectedValue = VTuple [VLit (LInt 6); VLit (LString "ciao"); Closure([], "x", Var "x")]
     
-    Assert.Equal(expectedType, actualType)
+    Assert.True(same_type expectedType actualType)
     Assert.Equal(expectedValue, actualValue)
     
     
@@ -143,7 +143,7 @@ let [<Fact>] ``Polymorphic high order function applied more times on a tuple 1``
         fValue
     ]
     
-    Assert.Equal(expectedType, actualType)
+    Assert.True(same_type expectedType actualType)
     Assert.Equal(expectedValue, actualValue)
 
 let [<Fact>] ``Recursive polymorphic function applied multiple on a tuple 2`` () =
@@ -186,7 +186,7 @@ let [<Fact>] ``Recursive polymorphic function applied multiple on a tuple 2`` ()
         RecClosure ([], "f", "x", Lambda ("y", None, App (Var "x", BinOp (Var "y", "+", Lit (LFloat 1.0)))))
     ]
     
-    Assert.Equal(expectedType, actualType)
+    Assert.True(same_type expectedType actualType)
     Assert.Equal(expectedValue, actualValue)
 
 let [<Fact>] ``Recursive function with a lot of bindings `` () =
@@ -269,7 +269,7 @@ let [<Fact>] ``Recursive polymorphic function applied multiple times on let bind
         RecClosure ([], "f", "x", Lambda ("y", None, App (Var "x", BinOp (Var "y", "+", Lit (LFloat 1.0)))))
     ]
     
-    Assert.Equal(expectedType, actualType)
+    Assert.True(same_type expectedType actualType)
     Assert.Equal(expectedValue, actualValue)
     
 

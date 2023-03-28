@@ -14,15 +14,10 @@ let rec apply_subst (t : ty) (s : subst) : ty =
     match t with
     | TyName _ -> t
     | TyVar tv ->
-                 try
-                     let _, t2 = s |>
-                                    List.find (
-                                     fun el ->
-                                         let t1, _ = el
-                                         t1 = tv
-                                 )
-                     apply_subst t2 s
-                 with e -> t
+        try
+            let _, t2 = s |> List.find (fun (t1, _) -> t1 = tv)
+            apply_subst t2 s
+        with e -> t
     | TyArrow (t1, t2) -> TyArrow (apply_subst t1 s, apply_subst t2 s)
     | TyTuple ts -> TyTuple (List.map (fun t -> apply_subst t s) ts)
 
@@ -37,11 +32,9 @@ let apply_subst_env (env: scheme env) (s: subst) =
    )
 
 let compose_subst (s1 : subst) (s2 : subst) : subst =
-    if List.isEmpty s1 then
-        s2
+    if List.isEmpty s1 then s2
     else
-        if List.isEmpty s2 then
-            s1
+        if List.isEmpty s2 then s1
         else
             s2
             |> List.fold (
@@ -78,11 +71,9 @@ let rec unify (t1 : ty) (t2 : ty) : subst =
     | TyName t1, TyName t2 -> if t1 = t2 then [] else type_error $"unify: impossible to unify {t1} with {t2}"
     | TyVar t1, TyVar t2 -> if t1 <> t2 then [(t1, TyVar t2)] else []
     | TyVar t1, t2
-    | t2, TyVar t1 -> if ty_belongs_to_ty t1 t2
-                        then
-                            type_error $"unify: impossible to unify {t1} with {t2}"
-                        else
-                            [(t1, t2)]
+    | t2, TyVar t1 -> 
+        if ty_belongs_to_ty t1 t2 then type_error $"unify: impossible to unify {t1} with {t2}" else [(t1, t2)]
+        
     | TyArrow(ty1, ty2), TyArrow(ty3, ty4) -> compose_subst (unify ty1 ty3) (unify ty2 ty4)
     | TyTuple ty1s, TyTuple ty2s -> ([], ty1s, ty2s) |||> List.fold2 (fun acc ty1 ty2 -> compose_subst (unify ty1 ty2) acc) 
     | _, _ -> type_error $"unify: impossible to unify {t1} with {t2}"
@@ -122,13 +113,12 @@ let instantiation (ForAll (tvs, t)) =
     (apply_subst t s, s)
 
 // type inference
-//
 
 let rec unify_binops ops (e1t, e1s) (e2t, e2s) err =
     match ops with
     | [] -> match err with
-                | Some err -> raise err
-                | None _ -> type_error "unify_operations: there is nothing to with try to unify the operation"
+            | Some err -> raise err
+            | None _ -> type_error "unify_operations: there is nothing to with try to unify the operation"
     | (t1, t2, tr) :: ops ->
            try
                let s1 = compose_subst (unify t1 e1t) e1s
@@ -143,8 +133,8 @@ let rec unify_binops ops (e1t, e1s) (e2t, e2s) err =
 let rec unify_unops ops (et, es) err =
     match ops with
     | [] -> match err with
-                | Some err -> raise err
-                | None _ -> type_error "unify_operations: there is nothing to with try to unify the operation"
+            | Some err -> raise err
+            | None _ -> type_error "unify_operations: there is nothing to with try to unify the operation"
     | (t, tr) :: ops ->
            try
                let s = compose_subst (unify t et) es

@@ -13,7 +13,7 @@ let [<Fact>] ``Apply substitutions to an arrow type with free vars`` () =
 
     let ty = TyArrow (TyVar 1, TyVar 2)
     let actual = apply_subst ty s
-    
+
     let expected = TyArrow (TyArrow (TyVar 4, TyVar 4), TyArrow (TyVar 3, TyVar 4))
         
     Assert.Equal(expected, actual)
@@ -68,9 +68,9 @@ let [<Fact>] ``Let untyped evaluating f int->'a->'a`` () =
 
     let alpha = TyVar 3
     let expectedType = TyArrow(TyArrow (TyInt, alpha), alpha)
-    
-    Assert.Equal(expectedType, actualType)
-    
+
+    Assert.True(same_type expectedType actualType)
+
 let [<Fact>] ``Let untyped evaluating f (int->int)->int`` () =
     let expr = LetIn((false, "f", None,
                       Lambda ("x", None, BinOp (App (Var "x", Lit (LInt 5)), "+", App (Var "x", Lit (LInt 5))))),
@@ -111,7 +111,7 @@ let [<Fact>] ``Let rec untyped evaluating f int->'a`` () =
 
     let expectedType = TyArrow(TyInt, TyVar 4)
 
-    Assert.Equal(expectedType, actualType)
+    Assert.True(same_type expectedType actualType)
 
 
 let [<Fact>] ``Let rec untyped evaluating f int -> int`` () =
@@ -141,19 +141,19 @@ let [<Fact>] ``Let rec untyped evaluating an application`` () =
     
     let expectedType = TyVar 3
 
-    Assert.Equal(expectedType, actualType)
+    Assert.True(same_type expectedType actualType)
 
 let [<Fact>] ``Let rec untyped evaluating a polymorphic function`` () =
     let expr = LetIn((true, "f", None, Lambda ("x", None, App (Var "f", Var "x"))),
                      LetIn ((false, "y", None, App (Var "f", Lit (LInt 5))), Var "f"))
     let env = []
-    
+
     reset_tyvar_index ()
     
     let actualType, _ = typeinfer_expr env expr
     let expectedType = TyArrow (TyVar 7, TyVar 8)
     
-    Assert.Equal(expectedType, actualType)
+    Assert.True(same_type expectedType actualType)
 
 //let [<Fact>] ``Let rec untyped evaluating a function int->int`` () =
 //    let expr = L
@@ -209,7 +209,7 @@ let [<Fact>] ``Lambda polymorphic with any parameter poly`` () =
     let beta =  TyVar 2
     let expectedType = TyArrow(alpha, TyArrow(beta, TyTuple [beta; alpha]))
     
-    Assert.Equal(expectedType, actualType)
+    Assert.True(same_type expectedType actualType)
 
 let [<Fact>] ``Lambda polymorphic with application`` () =
     let lambda = Lambda ("x", None, Lambda("y", None, App (Var "x", Var "y")))
@@ -223,7 +223,7 @@ let [<Fact>] ``Lambda polymorphic with application`` () =
     let beta =  TyVar 3
     let expectedType = TyArrow(TyArrow (alpha, beta), TyArrow(alpha, beta))
     
-    Assert.Equal(expectedType, actualType)
+    Assert.True(same_type expectedType actualType)
 
 // Application
 

@@ -63,8 +63,8 @@ let main_interactive () =
                     x, (t, v)
 
             printfn "val %s : %s = %s" x (pretty_ty t) (pretty_value v)
+
                 
-    
 [<EntryPoint>]
 let main argv =
     let r =
